@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Killer Sudoku Combination Tracker</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f7fb;
+      --panel: rgba(255,255,255,0.88);
+      --panel-strong: rgba(255,255,255,0.96);
+      --text: #1f2430;
+      --muted: #5e687a;
+      --border: #d7dce5;
+      --pill: #eef2f7;
+      --pill-hover: #e3eaf5;
+      --eliminated: #cfd5df;
+      --eliminated-text: #6b7280;
+      --accent: #3f6ed8;
+      --accent-soft: rgba(63,110,216,0.12);
+      --shadow: 0 10px 30px rgba(20, 28, 45, 0.08);
+    }
+
+    body.dark {
+      --bg: #0f1218;
+      --panel: rgba(24,29,39,0.84);
+      --panel-strong: rgba(24,29,39,0.94);
+      --text: #eef2fb;
+      --muted: #adb7ca;
+      --border: #2f3746;
+      --pill: #1a2130;
+      --pill-hover: #243048;
+      --eliminated: #2c3444;
+      --eliminated-text: #8590a5;
+      --accent: #8fb0ff;
+      --accent-soft: rgba(143,176,255,0.15);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .app {
+      min-height: 100vh;
+    }
+
+    .header-shell {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding: 10px 10px 0;
+      background: linear-gradient(to bottom, var(--bg) 82%, transparent);
+      transition: padding 0.22s ease;
+    }
+
+    .header-shell.compact {
+      padding-top: 6px;
+    }
+
+    .header {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: border-radius 0.22s ease, background-color 0.22s ease, border-color 0.22s ease;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 14px 10px;
+      cursor: pointer;
+    }
+
+    .title-wrap {
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.05rem, 2.5vw, 1.45rem);
+      line-height: 1.15;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.35;
+      transition: max-height 0.22s ease, opacity 0.22s ease, margin 0.22s ease;
+      max-height: 60px;
+      overflow: hidden;
+    }
+
+    .header.compact .subtitle {
+      max-height: 0;
+      opacity: 0;
+      margin-top: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    button, select {
+      border: 1px solid var(--border);
+      background: var(--pill);
+      color: var(--text);
+      border-radius: 12px;
+      font: inherit;
+      transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease, color 0.18s ease;
+    }
+
+    button {
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+
+    button:hover, select:hover {
+      background: var(--pill-hover);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .primary-button {
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    }
+
+    .drawer-toggle {
+      display: none;
+    }
+
+    .drawer {
+      padding: 0 14px 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      transition: max-height 0.22s ease, opacity 0.22s ease, padding 0.22s ease;
+    }
+
+    .drawer.closed-mobile {
+      display: none;
+    }
+
+    .control-card {
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      border-radius: 16px;
+      padding: 10px 12px;
+      min-width: 0;
+    }
+
+    .control-card label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .control-card select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--pill);
+    }
+
+    .stats {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0 14px 12px;
+    }
+
+    .stat-pill {
+      background: var(--accent-soft);
+      color: var(--text);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+
+    .content {
+      padding: 12px 10px 24px;
+    }
+
+    .group {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .group-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .group-title {
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .group-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .sum-row {
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 8px 0;
+      border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    }
+
+    .sum-row:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .sum-label {
+      font-weight: 700;
+      color: var(--muted);
+      padding-top: 7px;
+    }
+
+    .combos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .combo {
+      border: 1px solid var(--border);
+      background: var(--pill);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      font-size: 0.95rem;
+      line-height: 1.2;
+      transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+    }
+
+    .combo:hover {
+      background: var(--pill-hover);
+      transform: translateY(-1px);
+    }
+
+    .combo.eliminated {
+      background: var(--eliminated);
+      color: var(--eliminated-text);
+      text-decoration: line-through;
+      opacity: 0.95;
+    }
+
+    .empty-state {
+      border: 1px dashed var(--border);
+      border-radius: 18px;
+      padding: 24px 18px;
+      color: var(--muted);
+      text-align: center;
+      background: var(--panel);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 900px) {
+      .drawer {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .header-shell {
+        padding: 8px 8px 0;
+      }
+
+      .header-shell.compact .header {
+        border-radius: 16px;
+      }
+
+      .header-top {
+        padding: 12px 12px 8px;
+        align-items: flex-start;
+      }
+
+      .drawer-toggle {
+        display: inline-flex;
+      }
+
+      .desktop-only {
+        display: none;
+      }
+
+      .drawer {
+        grid-template-columns: 1fr;
+        padding: 0 12px 12px;
+      }
+
+      .drawer.mobile-collapsed {
+        display: none;
+      }
+
+      .stats {
+        padding: 0 12px 12px;
+      }
+
+      .content {
+        padding: 10px 8px 24px;
+      }
+
+      .group {
+        padding: 12px;
+        border-radius: 16px;
+      }
+
+      .sum-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+
+      .sum-label {
+        padding-top: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header-shell" id="headerShell">
+      <div class="header" id="headerCard">
+        <div class="header-top" id="headerTop">
+          <div class="title-wrap">
+            <h1>Killer Sudoku combination tracker</h1>
+            <div class="subtitle">Tap combinations to eliminate or restore them. Rows are grouped by number of digits, then by sum. Filters can hide everything that does not contain a chosen digit.</div>
+          </div>
+          <div class="header-actions">
+            <button class="drawer-toggle primary-button" id="drawerToggle" type="button">Filters &amp; actions</button>
+            <button class="desktop-only" id="themeToggle" type="button" aria-label="Toggle dark mode">🌙 Theme</button>
+            <button class="desktop-only" id="resetButton" type="button">Reset all</button>
+          </div>
+        </div>
+
+        <div class="drawer" id="drawer">
+          <div class="control-card">
+            <label for="containsDigitFilter">Must contain digit</label>
+            <select id="containsDigitFilter">
+              <option value="">Any digit</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+            </select>
+          </div>
+
+          <div class="control-card">
+            <label for="sizeFilter">Number of digits</label>
+            <select id="sizeFilter">
+              <option value="">Any size</option>
+            </select>
+          </div>
+
+          <div class="control-card">
+            <label for="themeToggleMobile">Theme</label>
+            <button id="themeToggleMobile" type="button" style="width:100%">🌙 Theme</button>
+          </div>
+
+          <div class="control-card">
+            <label for="resetButtonMobile">Actions</label>
+            <button id="resetButtonMobile" type="button" style="width:100%">Reset all eliminations</button>
+          </div>
+        </div>
+
+        <div class="stats" id="statsBar">
+          <span class="stat-pill" id="visibleCount">0 visible</span>
+          <span class="stat-pill" id="remainingCount">0 active</span>
+          <span id="filterSummary">Showing all combinations.</span>
+        </div>
+      </div>
+    </div>
+
+    <main class="content">
+      <div id="groupsContainer"></div>
+      <div class="empty-state hidden" id="emptyState">No combinations match the current filters. Try loosening the net a little.</div>
+    </main>
+  </div>
+
+  <script>
+    const combinationData = {
+      2: {
+        3: ['1,2'],
+        4: ['1,3'],
+        5: ['1,4', '2,3'],
+        6: ['1,5', '2,4'],
+        7: ['1,6', '2,5', '3,4'],
+        8: ['1,7', '2,6', '3,5'],
+        9: ['1,8', '2,7', '3,6', '4,5'],
+        10: ['1,9', '2,8', '3,7', '4,6'],
+        11: ['2,9', '3,8', '4,7', '5,6'],
+        12: ['3,9', '4,8', '5,7'],
+        13: ['4,9', '5,8', '6,7'],
+        14: ['5,9', '6,8'],
+        15: ['6,9', '7,8'],
+        16: ['7,9'],
+        17: ['8,9']
+      },
+      3: {
+        6: ['1,2,3'],
+        7: ['1,2,4'],
+        8: ['1,2,5', '1,3,4'],
+        9: ['1,2,6', '1,3,5', '2,3,4'],
+        10: ['1,2,7', '1,3,6', '1,4,5', '2,3,5'],
+        11: ['1,2,8', '1,3,7', '1,4,6', '2,3,6', '2,4,5'],
+        12: ['1,2,9', '1,3,8', '1,4,7', '1,5,6', '2,3,7', '2,4,6', '3,4,5'],
+        13: ['1,3,9', '1,4,8', '1,5,7', '2,3,8', '2,4,7', '2,5,6', '3,4,6'],
+        14: ['1,4,9', '1,5,8', '1,6,7', '2,3,9', '2,4,8', '2,5,7', '3,4,7', '3,5,6'],
+        15: ['1,5,9', '1,6,8', '2,4,9', '2,5,8', '2,6,7', '3,4,8', '3,5,7', '4,5,6'],
+        16: ['1,6,9', '1,7,8', '2,5,9', '2,6,8', '3,4,9', '3,5,8', '3,6,7', '4,5,7'],
+        17: ['1,7,9', '2,6,9', '2,7,8', '3,5,9', '3,6,8', '4,5,8', '4,6,7'],
+        18: ['1,8,9', '2,7,9', '3,6,9', '3,7,8', '4,5,9', '4,6,8', '5,6,7'],
+        19: ['2,8,9', '3,7,9', '4,6,9', '4,7,8', '5,6,8'],
+        20: ['3,8,9', '4,7,9', '5,6,9', '5,7,8'],
+        21: ['4,8,9', '5,7,9', '6,7,8'],
+        22: ['5,8,9', '6,7,9'],
+        23: ['6,8,9'],
+        24: ['7,8,9']
+      },
+      4: {
+        10: ['1,2,3,4'],
+        11: ['1,2,3,5'],
+        12: ['1,2,3,6', '1,2,4,5'],
+        13: ['1,2,3,7', '1,2,4,6', '1,3,4,5'],
+        14: ['1,2,3,8', '1,2,4,7', '1,2,5,6', '1,3,4,6', '2,3,4,5'],
+        15: ['1,2,3,9', '1,2,4,8', '1,2,5,7', '1,3,4,7', '1,3,5,6', '2,3,4,6'],
+        16: ['1,2,4,9', '1,2,5,8', '1,2,6,7', '1,3,4,8', '1,3,5,7', '1,4,5,6', '2,3,4,7', '2,3,5,6'],
+        17: ['1,2,5,9', '1,2,6,8', '1,3,4,9', '1,3,5,8', '1,3,6,7', '1,4,5,7', '2,3,4,8', '2,3,5,7', '2,4,5,6'],
+        18: ['1,2,6,9', '1,2,7,8', '1,3,5,9', '1,3,6,8', '1,4,5,8', '1,4,6,7', '2,3,4,9', '2,3,5,8', '2,3,6,7', '2,4,5,7', '3,4,5,6'],
+        19: ['1,2,7,9', '1,3,6,9', '1,3,7,8', '1,4,5,9', '1,4,6,8', '1,5,6,7', '2,3,5,9', '2,3,6,8', '2,4,5,8', '2,4,6,7', '3,4,5,7'],
+        20: ['1,2,8,9', '1,3,7,9', '1,4,6,9', '1,4,7,8', '1,5,6,8', '2,3,6,9', '2,3,7,8', '2,4,5,9', '2,4,6,8', '2,5,6,7', '3,4,5,8', '3,4,6,7'],
+        21: ['1,3,8,9', '1,4,7,9', '1,5,6,9', '1,5,7,8', '2,3,7,9', '2,4,6,9', '2,4,7,8', '2,5,6,8', '3,4,5,9', '3,4,6,8', '3,5,6,7'],
+        22: ['1,4,8,9', '1,5,7,9', '1,6,7,8', '2,3,8,9', '2,4,7,9', '2,5,6,9', '2,5,7,8', '3,4,6,9', '3,4,7,8', '3,5,6,8', '4,5,6,7'],
+        23: ['1,5,8,9', '1,6,7,9', '2,4,8,9', '2,5,7,9', '2,6,7,8', '3,4,7,9', '3,5,6,9', '3,5,7,8', '4,5,6,8'],
+        24: ['1,6,8,9', '1,7,7,9', '2,5,8,9', '2,6,7,9', '3,4,8,9', '3,5,7,9', '3,6,7,8', '4,5,6,9', '4,5,7,8'],
+        25: ['1,7,8,9', '2,6,8,9', '2,7,7,9', '3,5,8,9', '3,6,7,9', '4,5,7,9', '4,6,7,8'],
+        26: ['2,7,8,9', '3,6,8,9', '3,7,7,9', '4,5,8,9', '4,6,7,9', '5,6,7,8'],
+        27: ['3,7,8,9', '4,6,8,9', '4,7,7,9', '5,6,7,9'],
+        28: ['4,7,8,9', '5,6,8,9', '5,7,7,9'],
+        29: ['5,7,8,9', '6,7,7,9'],
+        30: ['6,7,8,9']
+      },
+      5: {
+        15: ['1,2,3,4,5'],
+        16: ['1,2,3,4,6'],
+        17: ['1,2,3,4,7', '1,2,3,5,6'],
+        18: ['1,2,3,4,8', '1,2,3,5,7', '1,2,4,5,6'],
+        19: ['1,2,3,4,9', '1,2,3,5,8', '1,2,3,6,7', '1,2,4,5,7', '1,3,4,5,6'],
+        20: ['1,2,3,5,9', '1,2,3,6,8', '1,2,4,5,8', '1,2,4,6,7', '1,3,4,5,7', '2,3,4,5,6'],
+        21: ['1,2,3,6,9', '1,2,3,7,8', '1,2,4,5,9', '1,2,4,6,8', '1,2,5,6,7', '1,3,4,5,8', '1,3,4,6,7', '2,3,4,5,7'],
+        22: ['1,2,3,7,9', '1,2,4,6,9', '1,2,4,7,8', '1,2,5,6,8', '1,3,4,5,9', '1,3,4,6,8', '1,3,5,6,7', '2,3,4,5,8', '2,3,4,6,7'],
+        23: ['1,2,3,8,9', '1,2,4,7,9', '1,2,5,6,9', '1,2,5,7,8', '1,3,4,6,9', '1,3,4,7,8', '1,3,5,6,8', '1,4,5,6,7', '2,3,4,5,9', '2,3,4,6,8', '2,3,5,6,7'],
+        24: ['1,2,4,8,9', '1,2,5,7,9', '1,2,6,7,8', '1,3,4,7,9', '1,3,5,6,9', '1,3,5,7,8', '1,4,5,6,8', '2,3,4,6,9', '2,3,4,7,8', '2,3,5,6,8', '2,4,5,6,7'],
+        25: ['1,2,5,8,9', '1,2,6,7,9', '1,3,4,8,9', '1,3,5,7,9', '1,3,6,7,8', '1,4,5,6,9', '1,4,5,7,8', '2,3,4,7,9', '2,3,5,6,9', '2,3,5,7,8', '2,4,5,6,8', '3,4,5,6,7'],
+        26: ['1,2,6,8,9', '1,2,7,7,9', '1,3,5,8,9', '1,3,6,7,9', '1,4,5,7,9', '1,4,6,7,8', '2,3,4,8,9', '2,3,5,7,9', '2,3,6,7,8', '2,4,5,6,9', '2,4,5,7,8', '3,4,5,6,8'],
+        27: ['1,2,7,8,9', '1,3,6,8,9', '1,4,5,8,9', '1,4,6,7,9', '1,5,6,7,8', '2,3,5,8,9', '2,3,6,7,9', '2,4,5,7,9', '2,4,6,7,8', '3,4,5,6,9', '3,4,5,7,8'],
+        28: ['1,3,7,8,9', '1,4,6,8,9', '1,5,6,7,9', '2,3,6,8,9', '2,4,5,8,9', '2,4,6,7,9', '2,5,6,7,8', '3,4,5,7,9', '3,4,6,7,8'],
+        29: ['1,4,7,8,9', '1,5,6,8,9', '2,3,7,8,9', '2,4,6,8,9', '2,5,6,7,9', '3,4,5,8,9', '3,4,6,7,9', '3,5,6,7,8'],
+        30: ['1,5,7,8,9', '2,4,7,8,9', '2,5,6,8,9', '3,4,6,8,9', '3,5,6,7,9', '4,5,6,7,8'],
+        31: ['1,6,7,8,9', '2,5,7,8,9', '3,4,7,8,9', '3,5,6,8,9', '4,5,6,7,9'],
+        32: ['2,6,7,8,9', '3,5,7,8,9', '4,5,6,8,9'],
+        33: ['3,6,7,8,9', '4,5,7,8,9'],
+        34: ['4,6,7,8,9'],
+        35: ['5,6,7,8,9']
+      },
+      6: {
+        21: ['1,2,3,4,5,6'],
+        22: ['1,2,3,4,5,7'],
+        23: ['1,2,3,4,5,8', '1,2,3,4,6,7'],
+        24: ['1,2,3,4,5,9', '1,2,3,4,6,8', '1,2,3,5,6,7'],
+        25: ['1,2,3,4,6,9', '1,2,3,4,7,8', '1,2,3,5,6,8', '1,2,4,5,6,7'],
+        26: ['1,2,3,4,7,9', '1,2,3,5,6,9', '1,2,3,5,7,8', '1,2,4,5,6,8', '1,3,4,5,6,7'],
+        27: ['1,2,3,4,8,9', '1,2,3,5,7,9', '1,2,3,6,7,8', '1,2,4,5,6,9', '1,2,4,5,7,8', '1,3,4,5,6,8', '2,3,4,5,6,7'],
+        28: ['1,2,3,5,8,9', '1,2,3,6,7,9', '1,2,4,5,7,9', '1,2,4,6,7,8', '1,3,4,5,6,9', '1,3,4,5,7,8', '2,3,4,5,6,8'],
+        29: ['1,2,3,6,8,9', '1,2,4,5,8,9', '1,2,4,6,7,9', '1,2,5,6,7,8', '1,3,4,5,7,9', '1,3,4,6,7,8', '2,3,4,5,6,9', '2,3,4,5,7,8'],
+        30: ['1,2,3,7,8,9', '1,2,4,6,8,9', '1,2,5,6,7,9', '1,3,4,5,8,9', '1,3,4,6,7,9', '1,3,5,6,7,8', '2,3,4,5,7,9', '2,3,4,6,7,8'],
+        31: ['1,2,4,7,8,9', '1,2,5,6,8,9', '1,3,4,6,8,9', '1,3,5,6,7,9', '1,4,5,6,7,8', '2,3,4,5,8,9', '2,3,4,6,7,9', '2,3,5,6,7,8'],
+        32: ['1,2,5,7,8,9', '1,3,4,7,8,9', '1,3,5,6,8,9', '1,4,5,6,7,9', '2,3,4,6,8,9', '2,3,5,6,7,9', '2,4,5,6,7,8'],
+        33: ['1,2,6,7,8,9', '1,3,5,7,8,9', '1,4,5,6,8,9', '2,3,4,7,8,9', '2,3,5,6,8,9', '2,4,5,6,7,9', '3,4,5,6,7,8'],
+        34: ['1,3,6,7,8,9', '1,4,5,7,8,9', '2,3,5,7,8,9', '2,4,5,6,8,9', '3,4,5,6,7,9'],
+        35: ['1,4,6,7,8,9', '2,3,6,7,8,9', '2,4,5,7,8,9', '3,4,5,6,8,9'],
+        36: ['1,5,6,7,8,9', '2,4,6,7,8,9', '3,4,5,7,8,9'],
+        37: ['2,5,6,7,8,9', '3,4,6,7,8,9'],
+        38: ['3,5,6,7,8,9'],
+        39: ['4,5,6,7,8,9']
+      },
+      7: {
+        28: ['1,2,3,4,5,6,7'],
+        29: ['1,2,3,4,5,6,8'],
+        30: ['1,2,3,4,5,6,9', '1,2,3,4,5,7,8'],
+        31: ['1,2,3,4,5,7,9', '1,2,3,4,6,7,8'],
+        32: ['1,2,3,4,5,8,9', '1,2,3,4,6,7,9', '1,2,3,5,6,7,8'],
+        33: ['1,2,3,4,6,8,9', '1,2,3,5,6,7,9', '1,2,4,5,6,7,8'],
+        34: ['1,2,3,4,7,8,9', '1,2,3,5,6,8,9', '1,2,4,5,6,7,9', '1,3,4,5,6,7,8'],
+        35: ['1,2,3,5,7,8,9', '1,2,4,5,6,8,9', '1,3,4,5,6,7,9', '2,3,4,5,6,7,8'],
+        36: ['1,2,3,6,7,8,9', '1,2,4,5,7,8,9', '1,3,4,5,6,8,9', '2,3,4,5,6,7,9'],
+        37: ['1,2,4,6,7,8,9', '1,3,4,5,7,8,9', '2,3,4,5,6,8,9'],
+        38: ['1,2,5,6,7,8,9', '1,3,4,6,7,8,9', '2,3,4,5,7,8,9'],
+        39: ['1,3,5,6,7,8,9', '2,3,4,6,7,8,9'],
+        40: ['1,4,5,6,7,8,9', '2,3,5,6,7,8,9'],
+        41: ['2,4,5,6,7,8,9'],
+        42: ['3,4,5,6,7,8,9']
+      },
+      8: {
+        36: ['1,2,3,4,5,6,7,8'],
+        37: ['1,2,3,4,5,6,7,9'],
+        38: ['1,2,3,4,5,6,8,9'],
+        39: ['1,2,3,4,5,7,8,9'],
+        40: ['1,2,3,4,6,7,8,9'],
+        41: ['1,2,3,5,6,7,8,9'],
+        42: ['1,2,4,5,6,7,8,9'],
+        43: ['1,3,4,5,6,7,8,9'],
+        44: ['2,3,4,5,6,7,8,9']
+      },
+      9: {
+        45: ['1,2,3,4,5,6,7,8,9']
+      }
+    };
+
+    // Quick sanitation for any accidental duplicate-digit entries in the source data.
+    function sanitizeCombo(combo) {
+      const nums = combo.split(',').map(n => parseInt(n, 10)).filter(n => Number.isFinite(n));
+      const uniqueSorted = [...new Set(nums)].sort((a, b) => a - b);
+      return uniqueSorted.join(',');
+    }
+
+    function sanitizeData(data) {
+      const clean = {};
+      for (const [size, sums] of Object.entries(data)) {
+        clean[size] = {};
+        for (const [sum, combos] of Object.entries(sums)) {
+          const set = new Set(combos.map(sanitizeCombo));
+          clean[size][sum] = [...set].sort((a, b) => {
+            const aNums = a.split(',').map(Number);
+            const bNums = b.split(',').map(Number);
+            for (let i = 0; i < Math.max(aNums.length, bNums.length); i++) {
+              const diff = (aNums[i] || 0) - (bNums[i] || 0);
+              if (diff) return diff;
+            }
+            return 0;
+          });
+        }
+      }
+      return clean;
+    }
+
+    const data = sanitizeData(combinationData);
+
+    const STORAGE_KEYS = {
+      eliminated: 'killerSudokuEliminated_v2',
+      containsDigit: 'killerSudokuContainsDigit_v2',
+      sizeFilter: 'killerSudokuSizeFilter_v2',
+      drawerOpen: 'killerSudokuDrawerOpen_v2',
+      themePref: 'killerSudokuThemePref_v2'
+    };
+
+    const groupsContainer = document.getElementById('groupsContainer');
+    const emptyState = document.getElementById('emptyState');
+    const containsDigitFilter = document.getElementById('containsDigitFilter');
+    const sizeFilter = document.getElementById('sizeFilter');
+    const visibleCount = document.getElementById('visibleCount');
+    const remainingCount = document.getElementById('remainingCount');
+    const filterSummary = document.getElementById('filterSummary');
+    const resetButton = document.getElementById('resetButton');
+    const resetButtonMobile = document.getElementById('resetButtonMobile');
+    const themeToggle = document.getElementById('themeToggle');
+    const themeToggleMobile = document.getElementById('themeToggleMobile');
+    const drawer = document.getElementById('drawer');
+    const drawerToggle = document.getElementById('drawerToggle');
+    const headerShell = document.getElementById('headerShell');
+    const headerCard = document.getElementById('headerCard');
+    const headerTop = document.getElementById('headerTop');
+
+    let eliminated = new Set(JSON.parse(localStorage.getItem(STORAGE_KEYS.eliminated) || '[]'));
+
+    function comboKey(size, sum, combo) {
+      return `${size}|${sum}|${combo}`;
+    }
+
+    function saveEliminated() {
+      localStorage.setItem(STORAGE_KEYS.eliminated, JSON.stringify([...eliminated]));
+    }
+
+    function buildSizeOptions() {
+      const sizes = Object.keys(data).map(Number).sort((a, b) => a - b);
+      for (const size of sizes) {
+        const option = document.createElement('option');
+        option.value = String(size);
+        option.textContent = `${size} digit${size === 1 ? '' : 's'}`;
+        sizeFilter.appendChild(option);
+      }
+    }
+
+    function loadFilters() {
+      containsDigitFilter.value = localStorage.getItem(STORAGE_KEYS.containsDigit) || '';
+      sizeFilter.value = localStorage.getItem(STORAGE_KEYS.sizeFilter) || '';
+    }
+
+    function saveFilters() {
+      localStorage.setItem(STORAGE_KEYS.containsDigit, containsDigitFilter.value);
+      localStorage.setItem(STORAGE_KEYS.sizeFilter, sizeFilter.value);
+    }
+
+    function comboMatches(combo, selectedDigit) {
+      if (!selectedDigit) return true;
+      return combo.split(',').includes(selectedDigit);
+    }
+
+    function render() {
+      const selectedDigit = containsDigitFilter.value;
+      const selectedSize = sizeFilter.value;
+
+      saveFilters();
+      groupsContainer.innerHTML = '';
+
+      let totalVisible = 0;
+      let totalActive = 0;
+      let visibleGroups = 0;
+
+      const sortedSizes = Object.keys(data).map(Number).sort((a, b) => a - b);
+
+      for (const size of sortedSizes) {
+        if (selectedSize && String(size) !== selectedSize) continue;
+
+        const sums = data[size];
+        const sortedSums = Object.keys(sums).map(Number).sort((a, b) => a - b);
+        const group = document.createElement('section');
+        group.className = 'group';
+
+        const groupHeader = document.createElement('div');
+        groupHeader.className = 'group-header';
+        groupHeader.innerHTML = `<div class="group-title">${size} digit${size === 1 ? '' : 's'}</div><div class="group-meta"></div>`;
+
+        let groupVisible = 0;
+        let groupActive = 0;
+
+        for (const sum of sortedSums) {
+          const matchingCombos = sums[sum].filter(combo => comboMatches(combo, selectedDigit));
+          if (!matchingCombos.length) continue;
+
+          const sumRow = document.createElement('div');
+          sumRow.className = 'sum-row';
+          const sumLabel = document.createElement('div');
+          sumLabel.className = 'sum-label';
+          sumLabel.textContent = `Sum ${sum}`;
+
+          const combosEl = document.createElement('div');
+          combosEl.className = 'combos';
+
+          for (const combo of matchingCombos) {
+            const key = comboKey(size, sum, combo);
+            const comboEl = document.createElement('button');
+            comboEl.type = 'button';
+            comboEl.className = 'combo';
+            comboEl.textContent = combo;
+            comboEl.setAttribute('aria-pressed', eliminated.has(key) ? 'true' : 'false');
+            if (eliminated.has(key)) {
+              comboEl.classList.add('eliminated');
+            } else {
+              groupActive += 1;
+              totalActive += 1;
+            }
+
+            comboEl.addEventListener('click', () => {
+              if (eliminated.has(key)) {
+                eliminated.delete(key);
+              } else {
+                eliminated.add(key);
+              }
+              saveEliminated();
+              render();
+            });
+
+            combosEl.appendChild(comboEl);
+            groupVisible += 1;
+            totalVisible += 1;
+          }
+
+          sumRow.appendChild(sumLabel);
+          sumRow.appendChild(combosEl);
+          group.appendChild(sumRow);
+        }
+
+        if (groupVisible > 0) {
+          groupHeader.querySelector('.group-meta').textContent = `${groupVisible} visible • ${groupActive} active`;
+          group.prepend(groupHeader);
+          groupsContainer.appendChild(group);
+          visibleGroups += 1;
+        }
+      }
+
+      emptyState.classList.toggle('hidden', totalVisible !== 0);
+      visibleCount.textContent = `${totalVisible} visible`;
+      remainingCount.textContent = `${totalActive} active`;
+
+      const summaryBits = [];
+      summaryBits.push(selectedSize ? `${selectedSize}-digit combinations` : 'all sizes');
+      summaryBits.push(selectedDigit ? `containing ${selectedDigit}` : 'with any digit');
+      filterSummary.textContent = `Showing ${summaryBits.join(' and ')} across ${visibleGroups} section${visibleGroups === 1 ? '' : 's'}.`;
+    }
+
+    function resetAll() {
+      eliminated.clear();
+      saveEliminated();
+      render();
+    }
+
+    function applyTheme(theme) {
+      const isDark = theme === 'dark';
+      document.body.classList.toggle('dark', isDark);
+      const label = isDark ? '☀️ Light mode' : '🌙 Dark mode';
+      themeToggle.textContent = label;
+      themeToggleMobile.textContent = label;
+    }
+
+    function getPreferredTheme() {
+      const saved = localStorage.getItem(STORAGE_KEYS.themePref);
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function toggleTheme() {
+      const next = document.body.classList.contains('dark') ? 'light' : 'dark';
+      localStorage.setItem(STORAGE_KEYS.themePref, next);
+      applyTheme(next);
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener?.('change', () => {
+      const saved = localStorage.getItem(STORAGE_KEYS.themePref);
+      if (!saved) applyTheme(getPreferredTheme());
+    });
+
+    function isMobile() {
+      return window.innerWidth <= 720;
+    }
+
+    function setDrawerOpenState(open, remember = true) {
+      if (isMobile()) {
+        drawer.classList.toggle('mobile-collapsed', !open);
+      } else {
+        drawer.classList.remove('mobile-collapsed');
+      }
+      if (remember) {
+        localStorage.setItem(STORAGE_KEYS.drawerOpen, open ? 'open' : 'closed');
+      }
+    }
+
+    function getStoredDrawerState() {
+      const saved = localStorage.getItem(STORAGE_KEYS.drawerOpen);
+      if (saved === 'open') return true;
+      if (saved === 'closed') return false;
+      return !isMobile();
+    }
+
+    drawerToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = drawer.classList.contains('mobile-collapsed');
+      setDrawerOpenState(willOpen);
+    });
+
+    headerTop.addEventListener('click', () => {
+      if (!isMobile()) return;
+      const compact = headerCard.classList.contains('compact');
+      const closed = drawer.classList.contains('mobile-collapsed');
+      if (compact || closed) {
+        headerCard.classList.remove('compact');
+        headerShell.classList.remove('compact');
+        setDrawerOpenState(true);
+        window.scrollTo({ top: Math.max(window.scrollY - 1, 0), behavior: 'smooth' });
+      }
+    });
+
+    let lastScrollY = window.scrollY;
+    window.addEventListener('scroll', () => {
+      if (!isMobile()) return;
+      const current = window.scrollY;
+      const scrollingDown = current > lastScrollY + 4;
+      const scrollingUp = current < lastScrollY - 4;
+
+      if (scrollingDown && current > 50) {
+        headerCard.classList.add('compact');
+        headerShell.classList.add('compact');
+        setDrawerOpenState(false, false);
+      } else if (scrollingUp) {
+        headerCard.classList.remove('compact');
+        headerShell.classList.remove('compact');
+        const stored = localStorage.getItem(STORAGE_KEYS.drawerOpen);
+        setDrawerOpenState(stored !== 'closed', false);
+      }
+
+      lastScrollY = current;
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+      setDrawerOpenState(getStoredDrawerState(), false);
+    });
+
+    containsDigitFilter.addEventListener('change', render);
+    sizeFilter.addEventListener('change', render);
+    resetButton.addEventListener('click', resetAll);
+    resetButtonMobile.addEventListener('click', resetAll);
+    themeToggle.addEventListener('click', toggleTheme);
+    themeToggleMobile.addEventListener('click', toggleTheme);
+
+    buildSizeOptions();
+    loadFilters();
+    applyTheme(getPreferredTheme());
+    setDrawerOpenState(getStoredDrawerState(), false);
+    render();
+  </script>
+</body>
+</html>
